@@ -1,0 +1,9 @@
+__pycache__/
+*.pyc
+uploads/
+*.conf
+*.txt
+!requirements.txt
+*.dot
+*.png
+.DS_Store

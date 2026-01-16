@@ -1,0 +1,238 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>FortiGraph - Network Topology Visualizer</title>
+    <!-- Google Fonts -->
+    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;600&display=swap" rel="stylesheet">
+    <!-- Graphviz -->
+    <script src="https://d3js.org/d3.v5.min.js"></script>
+    <script src="https://unpkg.com/@hpcc-js/wasm@0.3.11/dist/index.min.js"></script>
+    <script src="https://unpkg.com/d3-graphviz@3.0.5/build/d3-graphviz.js"></script>
+    
+    <style>
+        :root {
+            --bg-color: #0f172a;
+            --card-bg: #1e293b;
+            --accent: #38bdf8;
+            --text-primary: #f8fafc;
+            --text-secondary: #94a3b8;
+        }
+        
+        body {
+            font-family: 'Outfit', sans-serif;
+            background-color: var(--bg-color);
+            color: var(--text-primary);
+            margin: 0;
+            padding: 0;
+            display: flex;
+            flex-direction: column;
+            height: 100vh;
+            overflow: hidden;
+        }
+        
+        header {
+            padding: 1rem 2rem;
+            background: rgba(30, 41, 59, 0.8);
+            backdrop-filter: blur(10px);
+            border-bottom: 1px solid rgba(255,255,255,0.1);
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        
+        h1 {
+            margin: 0;
+            font-weight: 600;
+            letter-spacing: -0.5px;
+            background: linear-gradient(to right, #38bdf8, #818cf8);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+        }
+        
+        main {
+            flex: 1;
+            display: flex;
+            overflow: hidden;
+        }
+        
+        #sidebar {
+            width: 300px;
+            background-color: var(--card-bg);
+            padding: 2rem;
+            box-shadow: 2px 0 10px rgba(0,0,0,0.3);
+            display: flex;
+            flex-direction: column;
+            gap: 2rem;
+            z-index: 10;
+        }
+        
+        #canvas {
+            flex: 1;
+            background-color: #0b1120;
+            position: relative;
+            overflow: hidden;
+        }
+        
+        .upload-area {
+            border: 2px dashed var(--text-secondary);
+            border-radius: 12px;
+            padding: 2rem;
+            text-align: center;
+            cursor: pointer;
+            transition: all 0.3s ease;
+        }
+        
+        .upload-area:hover, .upload-area.dragover {
+            border-color: var(--accent);
+            background-color: rgba(56, 189, 248, 0.1);
+        }
+        
+        .btn {
+            background: linear-gradient(135deg, #38bdf8, #818cf8);
+            border: none;
+            padding: 0.8rem 1.5rem;
+            color: white;
+            border-radius: 8px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: transform 0.2s;
+            width: 100%;
+        }
+        
+        .btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 4px 12px rgba(56, 189, 248, 0.3);
+        }
+        
+        #status {
+            font-size: 0.9rem;
+            color: var(--text-secondary);
+            margin-top: 1rem;
+            text-align: center;
+        }
+
+        /* Graphviz Styling Override */
+        #graph {
+            width: 100%;
+            height: 100%;
+        }
+    </style>
+</head>
+<body>
+
+<header>
+    <h1>FortiGraph</h1>
+    <div style="font-size: 0.9rem; color: var(--text-secondary);">v1.0.0</div>
+</header>
+
+<main>
+    <div id="sidebar">
+        <div>
+            <h2>Upload Config</h2>
+            <p style="color: var(--text-secondary); font-size: 0.9rem;">
+                Upload your FortiGate .conf file to visualize the topology.
+            </p>
+        </div>
+        
+        <div class="upload-area" id="drop-zone">
+            <input type="file" id="fileInput" accept=".conf,.txt" style="display: none;">
+            <div style="font-size: 2rem; margin-bottom: 1rem;">📂</div>
+            <p>Drag & Drop or Click to Upload</p>
+        </div>
+        
+        <div id="status"></div>
+    </div>
+    
+    <div id="canvas">
+        <div id="graph"></div>
+    </div>
+</main>
+
+<script>
+    const dropZone = document.getElementById('drop-zone');
+    const fileInput = document.getElementById('fileInput');
+    const statusDiv = document.getElementById('status');
+    
+    // Initialize Graphviz
+    const graphviz = d3.select("#graph")
+        .graphviz()
+        .transition(function () {
+            return d3.transition("main")
+                .ease(d3.easeLinear)
+                .duration(500);
+        })
+        .logEvents(true)
+        .on("initEnd", render);
+
+    function render() {
+        console.log("Graphviz initialized");
+    }
+
+    // Drag & Drop Handlers
+    dropZone.addEventListener('click', () => fileInput.click());
+    
+    dropZone.addEventListener('dragover', (e) => {
+        e.preventDefault();
+        dropZone.classList.add('dragover');
+    });
+    
+    dropZone.addEventListener('dragleave', () => {
+        dropZone.classList.remove('dragover');
+    });
+    
+    dropZone.addEventListener('drop', (e) => {
+        e.preventDefault();
+        dropZone.classList.remove('dragover');
+        if (e.dataTransfer.files.length) {
+            handleFile(e.dataTransfer.files[0]);
+        }
+    });
+    
+    fileInput.addEventListener('change', (e) => {
+        if (fileInput.files.length) {
+            handleFile(fileInput.files[0]);
+        }
+    });
+    
+    function handleFile(file) {
+        statusDiv.innerText = `Processing ${file.name}...`;
+        statusDiv.style.color = "#38bdf8";
+        
+        const formData = new FormData();
+        formData.append('file', file);
+        
+        fetch('/upload', {
+            method: 'POST',
+            body: formData
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.error) {
+                statusDiv.innerText = `Error: ${data.error}`;
+                statusDiv.style.color = "#ef4444";
+            } else {
+                statusDiv.innerText = "Rendering Graph...";
+                statusDiv.style.color = "#22c55e";
+                renderGraph(data.dot);
+            }
+        })
+        .catch(err => {
+            console.error(err);
+            statusDiv.innerText = "Network Error";
+            statusDiv.style.color = "#ef4444";
+        });
+    }
+    
+    function renderGraph(dotSrc) {
+        graphviz
+            .renderDot(dotSrc)
+            .on("end", () => {
+                 statusDiv.innerText = "Visualization Complete";
+            });
+    }
+</script>
+
+</body>
+</html>
