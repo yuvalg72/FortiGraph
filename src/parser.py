@@ -19,6 +19,7 @@ def parse_config(file_path):
     context = [] # stack to track context
     current_interface = None
     current_route = None
+    current_policy = None
     
     with open(file_path, 'r', encoding='utf-8', errors='ignore') as f:
         for line in f:
@@ -50,6 +51,10 @@ def parse_config(file_path):
                         if current_route:
                             data['routes'].append(current_route)
                             current_route = None
+                    elif context[-1] == 'firewall policy':
+                        if current_policy:
+                            data['policies'].append(current_policy)
+                            current_policy = None
                 continue
                 
             # Parsing Logic based on Context
@@ -81,6 +86,25 @@ def parse_config(file_path):
                         member = line.split()[-1].strip('"')
                         current_interface['member'].append(member)
             
+            # --- FIREWALL POLICY ---
+            elif current_section == 'firewall policy':
+                if line.startswith('edit '):
+                    current_policy = {'id': line.split(' ', 1)[1].strip('"'), 'srcintf': None, 'dstintf': None, 'srcaddr': None, 'dstaddr': None, 'action': None, 'service': None}
+
+                elif current_policy:
+                    if line.startswith('set srcintf '):
+                        current_policy['srcintf'] = line.split()[-1].strip('"')
+                    elif line.startswith('set dstintf '):
+                        current_policy['dstintf'] = line.split()[-1].strip('"')
+                    elif line.startswith('set srcaddr '):
+                        current_policy['srcaddr'] = line.split()[-1].strip('"')
+                    elif line.startswith('set dstaddr '):
+                        current_policy['dstaddr'] = line.split()[-1].strip('"')
+                    elif line.startswith('set action '):
+                        current_policy['action'] = line.split()[-1]
+                    elif line.startswith('set service '):
+                        current_policy['service'] = line.split()[-1].strip('"')
+
             # --- ROUTER STATIC ---
             elif current_section == 'router static':
                 if line.startswith('edit '):

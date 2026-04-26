@@ -20,7 +20,8 @@ def build_graph(parsed_data):
     
     for name, intf in interfaces.items():
         # Node attributes
-        label = f"{name}\n{intf['ip']}" if intf['ip'] else name
+        ip = intf.get('ip')  # Use .get() to avoid KeyError
+        label = f"{name}\n{ip}" if ip else name
         if intf.get('alias'):
             label += f"\n({intf['alias']})"
             
@@ -65,10 +66,11 @@ def build_graph(parsed_data):
         gateway = route.get('gateway')
         device = route.get('device')
         
-        # Create a node for the destination network
-        net_node = f"NET_{dst}"
+        # Sanitize dst for use as node name (replace spaces and special chars)
+        safe_dst = dst.replace(' ', '_').replace('/', '_')
+        net_node = f"NET_{safe_dst}"
         if not G.has_node(net_node):
-            G.add_node(net_node, label=dst, shape="cloud", style="filled", fillcolor="white")
+            G.add_node(net_node, label=dst, shape="note", style="filled", fillcolor="white")
             
         # Connect: Interface -> Gateway -> Network
         if device and device in interfaces:
