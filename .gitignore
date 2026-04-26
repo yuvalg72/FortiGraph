@@ -6,4 +6,5 @@ uploads/
 !requirements.txt
 *.dot
 *.png
+!docs/*.png
 .DS_Store
