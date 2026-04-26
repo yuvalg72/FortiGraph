@@ -26,10 +26,9 @@ def get_dot_source(G):
 
 def render_graph(G, output_name="output"):
     dot = _build_dot(G)
-    dot.save(f"{output_name}.dot")
-    print(f"Generated {output_name}.dot")
     try:
-        output_path = dot.render(output_name, view=False)
+        # render() saves the source file and produces the PNG; cleanup=True removes the intermediate source
+        output_path = dot.render(output_name, view=False, cleanup=True)
         print(f"Generated {output_path}")
     except Exception as e:
         print(f"Error rendering Graphviz image: {e}")
